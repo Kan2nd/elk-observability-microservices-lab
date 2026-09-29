@@ -81,7 +81,7 @@ Browser
 4. Every todo write causes `todos-api` to `PUBLISH` a JSON event to the Redis channel `log_channel`.
 5. `log-message-processor` has an active `SUBSCRIBE` on `log_channel`, receives every message, processes and prints it — picked up by Fluent-Bit.
 
-**All inter-service addresses (`K8s/app/configmap-app-config.yaml`):**
+**All inter-service addresses (`k8s/app/configmap-app-config.yaml`):**
 ```
 AUTH_API_ADDRESS   = http://auth-api:8081
 USERS_API_ADDRESS  = http://users-api:8083
@@ -208,7 +208,7 @@ enrolls at Fleet Server :8220          IS the Fleet control plane
 policy-managed by Fleet Server         manages Elastic Agent policies
 ```
 
-### Fleet Server (`K8s/moni/deployment-fleet-server.yaml`)
+### Fleet Server (`k8s/moni/deployment-fleet-server.yaml`)
 
 **What it is:** Elastic Agent in server mode. Acts as the control plane for all other agents AND runs the embedded APM server.
 
@@ -232,7 +232,7 @@ FLEET_SERVER_CERT=/certs/fleet-server/fleet-server.crt
 KIBANA_FLEET_SETUP=1
 ```
 
-### Elastic Agent (`K8s/app/daemonset-elastic-agent.yaml`)
+### Elastic Agent (`k8s/app/daemonset-elastic-agent.yaml`)
 
 **What it is:** The monitoring agent on the application node. Collects host-level system metrics and sends them **directly to Elasticsearch** — not through Fleet Server.
 
@@ -368,7 +368,7 @@ The `P` lines are partial — without the multiline fix these become 3 separate 
 
 ---
 
-### Stage 1 — Fluent-Bit Collector DaemonSet (`K8s/app/daemonset-fluent-bit.yaml`)
+### Stage 1 — Fluent-Bit Collector DaemonSet (`k8s/app/daemonset-fluent-bit.yaml`)
 
 Pinned to `k8s-app`. Mounts `/var/log` from host (read-only).
 
@@ -407,7 +407,7 @@ ServiceAccount `fluent-bit-collector` has ClusterRole to `get/list/watch` pods a
 
 ---
 
-### Stage 2 — Fluent-Bit Receiver (`K8s/moni/deployment-fluent-bit-receiver.yaml`)
+### Stage 2 — Fluent-Bit Receiver (`k8s/moni/deployment-fluent-bit-receiver.yaml`)
 
 Single-replica Deployment on `k8s-worker`. Receives from Collector, writes to Elasticsearch.
 
@@ -881,7 +881,7 @@ todos-api was changed from `memory-cache` (JS heap) to Redis GET/SET for todo st
 The new image must be built before deploying:
 
 ```bash
-cd app-vm/App/todos-api
+cd app/todos-api
 docker build -t kan2nd/microapp:todos-api-redis .
 docker push kan2nd/microapp:todos-api-redis
 ```

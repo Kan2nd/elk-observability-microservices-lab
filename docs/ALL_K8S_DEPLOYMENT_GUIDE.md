@@ -289,7 +289,7 @@ cd ..
 ## Phase 9 — Copy Manifests to k8s-control
 
 ```bash
-scp -r K8s/ kali@192.168.96.135:~/k8s/
+scp -r k8s/ kali@192.168.96.135:~/k8s/
 scp -r certs/ kali@192.168.96.135:~/certs/
 ```
 
@@ -385,7 +385,7 @@ The new image must be built and pushed before deploying the app stack.
 
 ```bash
 # On any machine with Docker and access to the source code
-cd app-vm/App/todos-api
+cd app/todos-api
 
 docker build -t kan2nd/microapp:todos-api-redis .
 docker push kan2nd/microapp:todos-api-redis
@@ -563,7 +563,7 @@ kubectl scale deployment rancher -n cattle-system --replicas=1
 
 ```bash
 # Edit the file locally, copy it up, then apply:
-scp K8s/app/deployment-users-api.yaml kali@192.168.96.135:~/k8s/app/
+scp k8s/app/deployment-users-api.yaml kali@192.168.96.135:~/k8s/app/
 ssh kali@192.168.96.135 \
   "kubectl apply -f ~/k8s/app/deployment-users-api.yaml && \
    kubectl rollout restart deployment/users-api -n app"
@@ -703,7 +703,7 @@ kubectl scale deployment log-message-processor --replicas=0 -n app
 ## Repository File Structure
 
 ```
-K8s/
+k8s/
 ├── namespace.yaml                         ← Creates monitor + app namespaces
 │
 ├── app/
@@ -736,7 +736,7 @@ K8s/
     ├── deployment-prometheus-monitoring.yaml ← Prometheus + RBAC + all scrape jobs
     └── nodeport-services.yaml             ← External NodePort services for all monitor components
 
-app-vm/App/                                ← Application source code (pre-built Docker images on Hub)
+app/                                       ← Application source code (pre-built Docker images on Hub)
 ├── frontend/                              ← Vue.js
 ├── auth-api/                              ← Go (Echo framework)
 ├── todos-api/                             ← Node.js Express

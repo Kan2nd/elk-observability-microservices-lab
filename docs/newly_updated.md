@@ -12,10 +12,10 @@ All significant changes made after initial deployment, in chronological order.
 
 | File | What changed |
 |---|---|
-| `K8s/moni/deployment-grafana.yaml` | **Deleted entirely** |
-| `K8s/moni/nodeport-services.yaml` | Removed `grafana-nodeport` section (was port 30300) |
-| `K8s/moni/configM/configmap.yaml` | Removed `GRAFANA_USER` from ConfigMap, removed `GRAFANA_PASSWORD` from Secret |
-| `K8s/ALL_K8S_DEPLOYMENT_GUIDE.md` | Removed Grafana from cluster layout, NodePort table, Phase 11 deploy step, Known Issues |
+| `k8s/moni/deployment-grafana.yaml` | **Deleted entirely** |
+| `k8s/moni/nodeport-services.yaml` | Removed `grafana-nodeport` section (was port 30300) |
+| `k8s/moni/configM/configmap.yaml` | Removed `GRAFANA_USER` from ConfigMap, removed `GRAFANA_PASSWORD` from Secret |
+| `k8s/ALL_K8S_DEPLOYMENT_GUIDE.md` | Removed Grafana from cluster layout, NodePort table, Phase 11 deploy step, Known Issues |
 | `FinalSum.md` | Removed entire Grafana section, removed from all tables and data flow diagrams |
 
 ### How to apply (if re-deploying from scratch)
@@ -40,7 +40,7 @@ Redis now starts with `appendonly yes` mode. Every write command is logged to `/
 
 | File | What changed |
 |---|---|
-| `K8s/app/deployment-redis.yaml` | Added ConfigMap `redis-config` with AOF settings, added PVC `redis-data` (1Gi), changed container command to load the config file, added volumeMounts for `/data` and `/usr/local/etc/redis` |
+| `k8s/app/deployment-redis.yaml` | Added ConfigMap `redis-config` with AOF settings, added PVC `redis-data` (1Gi), changed container command to load the config file, added volumeMounts for `/data` and `/usr/local/etc/redis` |
 
 ### AOF config written to Redis
 
@@ -64,7 +64,7 @@ On k8s-app node at:
 ### How to apply
 
 ```bash
-kubectl apply -f K8s/app/deployment-redis.yaml
+kubectl apply -f k8s/app/deployment-redis.yaml
 kubectl rollout restart deployment/redis -n app
 kubectl get pvc -n app   # redis-data should show Bound
 ```
@@ -81,7 +81,7 @@ Spring Boot reads `SPRING_DATASOURCE_URL` at startup. Overriding it with a file-
 
 | File | What changed |
 |---|---|
-| `K8s/app/deployment-users-api.yaml` | Added `SPRING_DATASOURCE_URL` env var pointing to `/data/usersdb`, added volumeMount at `/data`, added PVC `users-api-data` (1Gi) |
+| `k8s/app/deployment-users-api.yaml` | Added `SPRING_DATASOURCE_URL` env var pointing to `/data/usersdb`, added volumeMount at `/data`, added PVC `users-api-data` (1Gi) |
 
 ### The env var added
 
@@ -100,7 +100,7 @@ On k8s-app node at:
 ### How to apply
 
 ```bash
-kubectl apply -f K8s/app/deployment-users-api.yaml
+kubectl apply -f k8s/app/deployment-users-api.yaml
 kubectl rollout restart deployment/users-api -n app
 kubectl get pvc -n app   # users-api-data should show Bound
 ```
@@ -113,7 +113,7 @@ kubectl get pvc -n app   # users-api-data should show Bound
 
 ### What changed
 
-`app-vm/App/todos-api/todoController.js` was completely rewritten:
+`app/todos-api/todoController.js` was completely rewritten:
 - Removed `memory-cache` dependency
 - Added `redisClient.get` / `redisClient.set` calls using `util.promisify`
 - Todos stored as JSON at Redis key `todos:{username}`
@@ -123,8 +123,8 @@ kubectl get pvc -n app   # users-api-data should show Bound
 
 | File | What changed |
 |---|---|
-| `app-vm/App/todos-api/todoController.js` | Full rewrite — memory-cache → Redis GET/SET |
-| `K8s/app/deployment-todos-api.yaml` | Image tag changed: `todos-api` → `todos-api-redis` |
+| `app/todos-api/todoController.js` | Full rewrite — memory-cache → Redis GET/SET |
+| `k8s/app/deployment-todos-api.yaml` | Image tag changed: `todos-api` → `todos-api-redis` |
 
 ### Redis key structure
 
@@ -143,7 +143,7 @@ todos:{username}  →  JSON string
 ### Build and push the new image
 
 ```bash
-cd app-vm/App/todos-api
+cd app/todos-api
 docker build -t kan2nd/microapp:todos-api-redis .
 docker push kan2nd/microapp:todos-api-redis
 ```
@@ -151,7 +151,7 @@ docker push kan2nd/microapp:todos-api-redis
 ### How to apply
 
 ```bash
-kubectl apply -f K8s/app/deployment-todos-api.yaml
+kubectl apply -f k8s/app/deployment-todos-api.yaml
 kubectl rollout restart deployment/todos-api -n app
 ```
 
@@ -167,7 +167,7 @@ The deployment had no `ELASTIC_APM_SERVER_URL`, `ELASTIC_APM_SECRET_TOKEN`, or `
 
 | File | What changed |
 |---|---|
-| `K8s/app/deployment-log-processor.yaml` | Added `ELASTIC_APM_SERVER_URL`, `ELASTIC_APM_SECRET_TOKEN` (from secret), `ELASTIC_APM_SERVICE_NAME` |
+| `k8s/app/deployment-log-processor.yaml` | Added `ELASTIC_APM_SERVER_URL`, `ELASTIC_APM_SECRET_TOKEN` (from secret), `ELASTIC_APM_SERVICE_NAME` |
 
 ### Env vars added
 
@@ -186,7 +186,7 @@ The deployment had no `ELASTIC_APM_SERVER_URL`, `ELASTIC_APM_SECRET_TOKEN`, or `
 ### How to apply
 
 ```bash
-kubectl apply -f K8s/app/deployment-log-processor.yaml
+kubectl apply -f k8s/app/deployment-log-processor.yaml
 kubectl rollout restart deployment/log-message-processor -n app
 ```
 
@@ -202,11 +202,11 @@ After restarting, `log-message-processor` should appear as a service in Kibana A
 
 | File | What changed |
 |---|---|
-| `K8s/moni/kube-state-metrics.yaml` | **New file** — ServiceAccount, ClusterRole, ClusterRoleBinding, Deployment, Service |
-| `K8s/moni/deployment-prometheus-monitoring.yaml` | Added `kube-state-metrics` scrape job to `prometheus.yml` ConfigMap |
-| `K8s/ALL_K8S_DEPLOYMENT_GUIDE.md` | Added deploy step in Phase 11, updated Phase 14 verification targets, updated cluster layout |
+| `k8s/moni/kube-state-metrics.yaml` | **New file** — ServiceAccount, ClusterRole, ClusterRoleBinding, Deployment, Service |
+| `k8s/moni/deployment-prometheus-monitoring.yaml` | Added `kube-state-metrics` scrape job to `prometheus.yml` ConfigMap |
+| `k8s/ALL_K8S_DEPLOYMENT_GUIDE.md` | Added deploy step in Phase 11, updated Phase 14 verification targets, updated cluster layout |
 | `FinalSum.md` | Added kube-state-metrics to Prometheus scrape targets section, added Kibana alert examples |
-| `doc/presentation.md` | Added kube-state-metrics to tools table (slide 3) and metrics diagram (slide 8) |
+| `docs/presentation.md` | Added kube-state-metrics to tools table (slide 3) and metrics diagram (slide 8) |
 
 ### Key metrics now available
 
@@ -221,7 +221,7 @@ After restarting, `log-message-processor` should appear as a service in Kibana A
 ### How to apply
 
 ```bash
-kubectl apply -f K8s/moni/kube-state-metrics.yaml
+kubectl apply -f k8s/moni/kube-state-metrics.yaml
 kubectl rollout restart deployment/prometheus-monitoring -n monitor   # picks up new scrape job
 kubectl get pods -n monitor   # kube-state-metrics pod should be Running
 ```
@@ -269,7 +269,7 @@ Go to Kibana → Stack Management → Rules → Create rule → **Elasticsearch 
 | Zipkin traces | In-memory only | **No** | **No** |
 | Prometheus metrics | In-memory only (no PVC) | **No** | **No** |
 
-> Zipkin and Prometheus both lose data on pod restart. See `doc/suggestions.md` for how to fix these.
+> Zipkin and Prometheus both lose data on pod restart. See `docs/suggestions.md` for how to fix these.
 
 ---
 
@@ -281,7 +281,7 @@ Go to Kibana → Stack Management → Rules → Create rule → **Elasticsearch 
 
 | File | What changed |
 |---|---|
-| `K8s/moni/configM/configmap.yaml` | Added `LICENSE: "basic"` to the `monitor-config` ConfigMap |
+| `k8s/moni/configM/configmap.yaml` | Added `LICENSE: "basic"` to the `monitor-config` ConfigMap |
 
 ### Keys added
 
@@ -326,7 +326,7 @@ The ConfigMap had been applied before this key existed. Kubernetes does not cras
 
 | File | What changed |
 |---|---|
-| `K8s/moni/deployment-prometheus-monitoring.yaml` | Removed `frontend`, `kubernetes-apiservers`, `rancher` scrape jobs; added `kubelet-cadvisor` scrape job; removed `rancher-token` volume and volumeMount; added `nodes/metrics` to ClusterRole |
+| `k8s/moni/deployment-prometheus-monitoring.yaml` | Removed `frontend`, `kubernetes-apiservers`, `rancher` scrape jobs; added `kubelet-cadvisor` scrape job; removed `rancher-token` volume and volumeMount; added `nodes/metrics` to ClusterRole |
 
 ### Scrape jobs removed
 
@@ -438,7 +438,7 @@ Data will appear in `metrics-prometheus.*` index, queryable in Kibana Discover a
 
 | File | What changed |
 |---|---|
-| `K8s/moni/deployment-prometheus-monitoring.yaml` | Image changed to `prom/prometheus:v3.11.3-distroless`; `remote_write` block removed; `elastic-password` volume/volumeMount removed; `--enable-feature=native-histograms` arg kept (no-op in v3 but harmless) |
+| `k8s/moni/deployment-prometheus-monitoring.yaml` | Image changed to `prom/prometheus:v3.11.3-distroless`; `remote_write` block removed; `elastic-password` volume/volumeMount removed; `--enable-feature=native-histograms` arg kept (no-op in v3 but harmless) |
 
 ### How to apply
 
@@ -458,8 +458,8 @@ kubectl get pods -n monitor   # prometheus should show Running
 
 | File | What changed |
 |---|---|
-| `K8s/moni/kube-state-metrics.yaml` | Added `kube-state-metrics-nodeport` Service (NodePort 30780, targetPort 8080) |
-| `K8s/app/deployment-redis.yaml` | Added `redis-exporter-nodeport` Service (NodePort 30781, targetPort 9121) |
+| `k8s/moni/kube-state-metrics.yaml` | Added `kube-state-metrics-nodeport` Service (NodePort 30780, targetPort 8080) |
+| `k8s/app/deployment-redis.yaml` | Added `redis-exporter-nodeport` Service (NodePort 30781, targetPort 9121) |
 
 ### How it works
 
@@ -500,8 +500,8 @@ Metrics are stored as flat fields under `prometheus`, NOT nested under `promethe
 ### How to apply NodePort services
 
 ```bash
-kubectl apply -f K8s/moni/kube-state-metrics.yaml
-kubectl apply -f K8s/app/deployment-redis.yaml
+kubectl apply -f k8s/moni/kube-state-metrics.yaml
+kubectl apply -f k8s/app/deployment-redis.yaml
 ```
 
 Verify endpoints return metrics:

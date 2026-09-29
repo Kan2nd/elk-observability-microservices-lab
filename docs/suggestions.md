@@ -31,7 +31,7 @@ Honest gaps in the current project, with simple tutorials where the fix is strai
 
 **Tutorial — allow only monitor namespace pods to reach Elasticsearch:**
 
-Create `K8s/moni/networkpolicy-elasticsearch.yaml`:
+Create `k8s/moni/networkpolicy-elasticsearch.yaml`:
 
 ```yaml
 apiVersion: networking.k8s.io/v1
@@ -60,7 +60,7 @@ spec:
 
 Apply it:
 ```bash
-kubectl apply -f K8s/moni/networkpolicy-elasticsearch.yaml
+kubectl apply -f k8s/moni/networkpolicy-elasticsearch.yaml
 ```
 
 > **Note:** NetworkPolicy requires a CNI that supports it. Flannel alone does NOT enforce NetworkPolicy. You would need to add Calico or use `flannel + canal`. This is a learning exercise — implementing it on the current cluster would require replacing Flannel.
@@ -75,7 +75,7 @@ kubectl apply -f K8s/moni/networkpolicy-elasticsearch.yaml
 
 **Tutorial:**
 
-Create `K8s/app/resourcequota-app.yaml`:
+Create `k8s/app/resourcequota-app.yaml`:
 
 ```yaml
 apiVersion: v1
@@ -93,7 +93,7 @@ spec:
 
 Apply it:
 ```bash
-kubectl apply -f K8s/app/resourcequota-app.yaml
+kubectl apply -f k8s/app/resourcequota-app.yaml
 ```
 
 Check current usage vs quota:
@@ -115,7 +115,7 @@ kubectl describe resourcequota app-quota -n app
 
 **Tutorial:**
 
-Edit `K8s/moni/deployment-prometheus.yaml`. Find the `volumes:` section and replace the emptyDir entry:
+Edit `k8s/moni/deployment-prometheus.yaml`. Find the `volumes:` section and replace the emptyDir entry:
 
 ```yaml
 # BEFORE (if it exists as emptyDir):
@@ -150,7 +150,7 @@ spec:
 
 Apply:
 ```bash
-kubectl apply -f K8s/moni/deployment-prometheus.yaml
+kubectl apply -f k8s/moni/deployment-prometheus.yaml
 kubectl rollout restart deployment/prometheus -n monitor
 ```
 
@@ -226,13 +226,13 @@ GET metrics-apm.*/_search
 
 ### 2d. Frontend RUM — wire the browser APM agent
 
-**Problem:** `@elastic/apm-rum` is already in `app-vm/App/frontend/package.json` but not initialized. You get zero visibility into what happens in the user's browser: page load time, JS errors, user sessions.
+**Problem:** `@elastic/apm-rum` is already in `app/frontend/package.json` but not initialized. You get zero visibility into what happens in the user's browser: page load time, JS errors, user sessions.
 
 **What it does:** The RUM agent runs in the browser, captures page loads and AJAX calls, and sends traces to Fleet Server. They appear in Kibana APM under the `frontend` service.
 
 **Tutorial:**
 
-Edit `app-vm/App/frontend/src/main.js` (or wherever Vue is initialized). Add at the very top before anything else:
+Edit `app/frontend/src/main.js` (or wherever Vue is initialized). Add at the very top before anything else:
 
 ```javascript
 import { init as initApm } from '@elastic/apm-rum'
@@ -247,19 +247,19 @@ const apm = initApm({
 
 Rebuild the frontend image:
 ```bash
-cd app-vm/App/frontend
+cd app/frontend
 docker build -t kan2nd/microapp:frontend-rum .
 docker push kan2nd/microapp:frontend-rum
 ```
 
-Update `K8s/app/deployment-frontend.yaml`:
+Update `k8s/app/deployment-frontend.yaml`:
 ```yaml
 image: kan2nd/microapp:frontend-rum
 ```
 
 Apply:
 ```bash
-kubectl apply -f K8s/app/deployment-frontend.yaml
+kubectl apply -f k8s/app/deployment-frontend.yaml
 ```
 
 After deploying, open the app in a browser, then check Kibana APM → Services. You should see a `frontend` service appear within a minute.
@@ -276,7 +276,7 @@ After deploying, open the app in a browser, then check Kibana APM → Services. 
 
 **Tutorial:**
 
-Edit `K8s/app/deployment-zipkin.yaml`. Add environment variables to the Zipkin container:
+Edit `k8s/app/deployment-zipkin.yaml`. Add environment variables to the Zipkin container:
 
 ```yaml
 env:
@@ -297,7 +297,7 @@ env:
 
 Apply:
 ```bash
-kubectl apply -f K8s/app/deployment-zipkin.yaml
+kubectl apply -f k8s/app/deployment-zipkin.yaml
 ```
 
 > **Cross-namespace secret access problem:** The Zipkin pod is in `app` namespace but the secret is in `monitor` namespace. Kubernetes does not allow cross-namespace secret references. Options:
@@ -318,7 +318,7 @@ After applying, open Zipkin UI. New traces will be stored in ES under `zipkin*` 
 
 **Tutorial — update any stateless service (e.g., auth-api):**
 
-Edit `K8s/app/deployment-auth-api.yaml`:
+Edit `k8s/app/deployment-auth-api.yaml`:
 
 ```yaml
 spec:
@@ -335,7 +335,7 @@ spec:
 
 Apply:
 ```bash
-kubectl apply -f K8s/app/deployment-auth-api.yaml
+kubectl apply -f k8s/app/deployment-auth-api.yaml
 ```
 
 Watch the rollout:
