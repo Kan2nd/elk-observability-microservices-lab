@@ -27,6 +27,30 @@ logging, distributed tracing, APM, and metrics.
   `monitor` namespace (all observability tooling). Start here:
   [`docs/ALL_K8S_DEPLOYMENT_GUIDE.md`](docs/ALL_K8S_DEPLOYMENT_GUIDE.md).
 
+## Tech stack
+
+**Application**
+- Vue.js — frontend
+- Go — `auth-api`
+- Java / Spring Boot 1.5 — `users-api` (H2 file-mode storage)
+- Node.js / Express — `todos-api`
+- Python — `log-message-processor`
+- Redis 7 — pub/sub bus + todo storage
+
+**Observability**
+- Elasticsearch 9.3.1 — central log store + metrics/APM/trace backend
+- Kibana 9.3.1 — dashboards, Discover, APM UI, Fleet management, alerting
+- Elastic Fleet Server + Elastic Agent 9.3.1 — APM intake, system metrics, agent enrollment
+- Fluent-Bit — two-stage log collection pipeline (collector → receiver)
+- Prometheus (v3.11.3, distroless) + kube-state-metrics + redis_exporter — metrics scraping
+- Zipkin 3.4 — distributed request tracing
+- Rancher — Kubernetes cluster management UI (installed via Helm)
+
+**Infrastructure**
+- Kubernetes — 3-node bare-metal cluster (control plane + app node + monitoring node)
+- Docker — container images for every service
+- Helm — Rancher installation
+
 ## Repository structure
 
 ```
