@@ -41,7 +41,7 @@ logging, distributed tracing, APM, and metrics.
 │   ├── scripts/         Helper/one-off scripts (see inline comments before running)
 │   ├── deploy-all-k8s.sh / .bat   Quick all-in-one deploy scripts
 │   └── namespace.yaml
-├── docs/                Deployment guide, changelog, demo scenarios, presentation notes
+├── docs/                Full Kubernetes deployment guide
 └── archive/             Local-only backups & superseded material — gitignored, not pushed
 ```
 
@@ -65,20 +65,12 @@ lab cluster.
 
 ## Documentation
 
-See [`docs/`](docs/) for the full write-up:
-
-- [`ALL_K8S_DEPLOYMENT_GUIDE.md`](docs/ALL_K8S_DEPLOYMENT_GUIDE.md) — full phase-by-phase Kubernetes deployment guide
-- [`FinalSum.md`](docs/FinalSum.md) — final project summary/report
-- [`newly_updated.md`](docs/newly_updated.md) — running changelog of fixes and design changes
-- [`demo-scenarios.md`](docs/demo-scenarios.md) / [`scena.md`](docs/scena.md) — demo/test scenarios
-- [`presentation.md`](docs/presentation.md) — presentation notes
-- [`interesting_things.md`](docs/interesting_things.md) / [`suggestions.md`](docs/suggestions.md) — misc notes and ideas
-- [`search_tutorial.md`](docs/search_tutorial.md) — Elasticsearch/Kibana search tutorial notes
+- [`docs/ALL_K8S_DEPLOYMENT_GUIDE.md`](docs/ALL_K8S_DEPLOYMENT_GUIDE.md) — full phase-by-phase Kubernetes deployment guide, from generating TLS certs to verifying every component
 
 ## Credits
 
 The base microservices application is forked from
 [elgris/microservice-app-example](https://github.com/elgris/microservice-app-example)
 (MIT license, see [`app/LICENSE`](app/LICENSE)). Everything else — the
-Kubernetes deployment, the observability stack, and the accompanying docs —
-was built as coursework for an ELK-focused Semester 5 class.
+Kubernetes deployment and the observability stack — was built as coursework
+for an ELK-focused Semester 5 class.
