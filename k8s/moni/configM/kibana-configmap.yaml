@@ -1,0 +1,104 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kibana-config
+  namespace: monitor
+data:
+  kibana.yml: |
+    server.host: "0.0.0.0"
+    server.port: 5601
+    telemetry.enabled: "true"
+
+    server.ssl.enabled: true
+    server.ssl.certificate: config/certs/kibana/kibana.crt
+    server.ssl.key: config/certs/kibana/kibana.key
+    server.ssl.certificateAuthorities: ["config/certs/ca/ca.crt"]
+
+    xpack.fleet.fleetServerHosts:
+      - id: default-fleet-server
+        name: Default Fleet Server
+        is_default: true
+        host_urls:
+          - https://fleet-server.monitor.svc.cluster.local:8220
+
+    xpack.fleet.outputs:
+      - id: default-elasticsearch
+        name: Default Elasticsearch
+        type: elasticsearch
+        is_default: true
+        is_default_monitoring: true
+        hosts:
+          - https://es01.monitor.svc.cluster.local:9200
+        ssl:
+          # Absolute path — agents (fleet-server, elastic-agent) mount certs at /certs/
+          certificate_authorities:
+            - /certs/ca/ca.crt
+          # Cert was generated with SANs for "es01" and "localhost" only (docker-compose setup).
+          # K8s agents connect via es01.monitor.svc.cluster.local which is not in the cert SANs.
+          # "certificate" mode verifies the CA chain but skips hostname matching.
+          verification_mode: certificate
+
+    xpack.fleet.packages:
+      - name: fleet_server
+        version: latest
+      - name: system
+        version: latest
+      - name: elastic_agent
+        version: latest
+      - name: apm
+        version: latest
+
+    xpack.fleet.agentPolicies:
+      - name: Fleet-Server-Policy
+        id: fleet-server-policy
+        namespace: default
+        fleet_server_host_id: default-fleet-server
+        monitoring_enabled:
+          - logs
+          - metrics
+        package_policies:
+          - name: fleet_server-1
+            package:
+              name: fleet_server
+          - name: system-1
+            package:
+              name: system
+          - name: apm-1
+            package:
+              name: apm
+            inputs:
+              - type: apm
+                enabled: true
+                vars:
+                  - name: host
+                    value: 0.0.0.0:8200
+
+      - name: Default Policy
+        id: default-policy
+        namespace: default
+        description: Default policy for agents
+        monitoring_enabled:
+          - logs
+          - metrics
+        package_policies:
+          - name: system-default
+            package:
+              name: system
+          - name: apm-default
+            package:
+              name: apm
+            inputs:
+              - type: apm
+                enabled: true
+                vars:
+                  - name: host
+                    value: 0.0.0.0:8200
+
+    xpack.apm.enabled: true
+
+    logging:
+      loggers:
+        - name: plugins.securitySolution
+          level: fatal
+        - name: plugins.cloudSecurityPosture
+          level: fatal

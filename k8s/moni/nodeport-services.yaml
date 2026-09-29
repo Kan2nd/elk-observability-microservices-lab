@@ -1,0 +1,88 @@
+# NodePort services for external access to the monitor namespace.
+# All internal communication continues to use the ClusterIP services
+# defined in each component's own deployment file.
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: es01-nodeport
+  namespace: monitor
+spec:
+  type: NodePort
+  selector:
+    app: es01
+  ports:
+  - name: https
+    port: 9200
+    targetPort: 9200
+    nodePort: 30920
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kibana-nodeport
+  namespace: monitor
+spec:
+  type: NodePort
+  selector:
+    app: kibana
+  ports:
+  - name: https
+    port: 5601
+    targetPort: 5601
+    nodePort: 30601
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fleet-server-nodeport
+  namespace: monitor
+spec:
+  type: NodePort
+  selector:
+    app: fleet-server
+  ports:
+  - name: fleet
+    port: 8220
+    targetPort: 8220
+    nodePort: 30820
+  - name: apm
+    port: 8200
+    targetPort: 8200
+    nodePort: 30200
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus-nodeport
+  namespace: monitor
+spec:
+  type: NodePort
+  selector:
+    app: prometheus
+  ports:
+  - name: http
+    port: 9090
+    targetPort: 9090
+    nodePort: 30900
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fluent-bit-receiver-nodeport
+  namespace: monitor
+spec:
+  type: NodePort
+  selector:
+    app: fluent-bit-receiver
+  ports:
+  - name: forward
+    port: 24224
+    targetPort: 24224
+    nodePort: 30224
+    protocol: TCP

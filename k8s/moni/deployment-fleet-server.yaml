@@ -1,0 +1,112 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fleet-server
+  namespace: monitor
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: fleet-server
+  template:
+    metadata:
+      labels:
+        app: fleet-server
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: k8s-worker
+      enableServiceLinks: false
+      containers:
+      - name: fleet-server
+        image: docker.elastic.co/elastic-agent/elastic-agent:9.3.1
+        securityContext:
+          runAsUser: 0
+        resources:
+          limits:
+            memory: 512Mi
+        ports:
+        - containerPort: 8220
+        - containerPort: 8200
+        env:
+        - name: FLEET_SERVER_ENABLE
+          value: "1"
+        - name: FLEET_SERVER_HOST
+          value: "0.0.0.0"
+        - name: FLEET_SERVER_PORT
+          value: "8220"
+        - name: FLEET_SERVER_POLICY_ID
+          value: "fleet-server-policy"
+        - name: FLEET_SERVER_ELASTICSEARCH_HOST
+          value: "https://es01:9200"
+        - name: FLEET_SERVER_ELASTICSEARCH_CA
+          value: "/certs/ca/ca.crt"
+        - name: FLEET_SERVER_ELASTICSEARCH_INSECURE
+          value: "false"
+        - name: FLEET_SERVER_CERT
+          value: "/certs/fleet-server/fleet-server.crt"
+        - name: FLEET_SERVER_CERT_KEY
+          value: "/certs/fleet-server/fleet-server.key"
+        - name: FLEET_SERVER_INSECURE_HTTP
+          value: "false"
+        - name: FLEET_URL
+          value: "https://fleet-server:8220"
+        - name: FLEET_ENROLL
+          value: "1"
+        - name: FLEET_CA
+          value: "/certs/ca/ca.crt"
+        - name: FLEET_INSECURE
+          value: "false"
+        - name: SSL_CERTIFICATE_AUTHORITIES
+          value: "/certs/ca/ca.crt"
+        - name: CERTIFICATE_AUTHORITIES
+          value: "/certs/ca/ca.crt"
+        - name: KIBANA_FLEET_SETUP
+          value: "1"
+        - name: KIBANA_FLEET_CA
+          value: "/certs/ca/ca.crt"
+        - name: KIBANA_FLEET_USERNAME
+          value: "elastic"
+        - name: KIBANA_FLEET_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: monitor-secrets
+              key: ELASTIC_PASSWORD
+        - name: KIBANA_HOST
+          value: "https://kibana:5601"
+        - name: ELASTICSEARCH_USERNAME
+          value: "elastic"
+        - name: ELASTICSEARCH_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: monitor-secrets
+              key: ELASTIC_PASSWORD
+        volumeMounts:
+        - name: certs
+          mountPath: /certs
+      volumes:
+      - name: certs
+        secret:
+          secretName: elastic-certs
+          items:
+          - key: ca.crt
+            path: ca/ca.crt
+          - key: fleet-server.crt
+            path: fleet-server/fleet-server.crt
+          - key: fleet-server.key
+            path: fleet-server/fleet-server.key
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fleet-server
+  namespace: monitor
+spec:
+  selector:
+    app: fleet-server
+  ports:
+  - name: fleet
+    port: 8220
+    targetPort: 8220
+  - name: apm
+    port: 8200
+    targetPort: 8200

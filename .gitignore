@@ -1,0 +1,57 @@
+# Secrets / environment files — never commit real values, only *.env.example
+.env
+.env.local
+.env.*.local
+**/.env
+**/.env.local
+
+# Machine-specific / personal tooling, not part of the project itself
+.claude/
+.github/java-upgrade/
+
+# Preserved nested git history from the upstream fork (not a real repo anymore)
+app/.git.bak/
+
+# Redundant backups / anything containing real credentials — kept locally, never pushed
+archive/
+
+# Local CA certs and keys generated at deploy time
+certs/*
+!certs/.gitkeep
+**/certs/*.pem
+**/certs/*.crt
+**/certs/*.key
+
+# Elastic Agent / stack local data volumes
+elastic-agent-data/
+esdata01/
+kibanadata/
+fleetserverdata/
+grafanadata/
+fleet-token.txt
+
+# Build artifacts / dependencies
+node_modules/
+target/
+dist/
+build/
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# Logs
+*.log
+
+# Docker
+docker-compose.override.yml
+.dockerignore
+
+# IDE / OS
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db

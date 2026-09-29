@@ -1,0 +1,295 @@
+version: "3.8"
+
+volumes:
+  ca-certs:
+    driver: local
+  elastic-agent-data:
+    driver: local
+
+services:
+  # ==================== LOGGING & MONITORING ====================
+  # Fluent-bit: Collects logs from all services and forwards to monitor machine
+  fluent-bit:
+    image: cr.fluentbit.io/fluent/fluent-bit:3.1.8
+    container_name: app-fluent-bit
+    ports:
+      - "24224:24224"
+      - "24224:24224/udp"
+    volumes:
+      - ./fluent-bit/fluent-bit-client.conf:/fluent-bit/etc/fluent-bit.conf:ro
+      - ./certs:/certs:ro
+    environment:
+      - MONITOR_VM_IP=${MONITOR_VM_IP:-10.10.10.10}
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD:-changeme}
+    restart: unless-stopped
+    # healthcheck:
+    #   test: ["CMD-SHELL", "curl -sf http://localhost:2020/api/v1/health || exit 1"]
+    #   interval: 10s
+    #   timeout: 5s
+    #   retries: 30
+
+  # Elastic Agent: Manages logs, metrics, and APM data
+  elastic-agent:
+    image: docker.elastic.co/elastic-agent/elastic-agent:${STACK_VERSION:-9.3.1}
+    container_name: app-elastic-agent
+    user: root
+    ports:
+      - "8200:8200"  # [ADDED] APM server port exposed
+    volumes:
+      - elastic-agent-data:/usr/share/elastic-agent
+      - ./certs:/certs/ca:ro
+    environment:
+      - FLEET_URL=https://${MONITOR_VM_IP}:8220
+      - FLEET_ENROLL=true
+      - FLEET_ENROLLMENT_TOKEN=${FLEET_ENROLLMENT_TOKEN}
+      - FLEET_INSECURE=false
+      - SSL_CERTIFICATE_AUTHORITIES=/certs/ca/ca.crt
+      - FLEET_CA=/certs/ca/ca.crt                     
+      - FLEET_SERVER_CERT=/certs/ca/ca.crt            
+      - ELASTICSEARCH_CA=/certs/ca/ca.crt  
+      - ELASTICSEARCH_HOST=https://${MONITOR_VM_IP}:9200
+      - ELASTICSEARCH_USERNAME=elastic
+      - ELASTICSEARCH_PASSWORD=${ELASTIC_PASSWORD:-changeme}
+      # [ADDED] APM configuration
+      - ELASTIC_APM_SERVER_URL=http://localhost:8200
+      - ELASTIC_APM_ENVIRONMENT=docker
+    restart: unless-stopped
+    depends_on:
+      - zipkin
+    # healthcheck:
+    #   test: ["CMD-SHELL", "curl -sf http://localhost:6791/api/v1/state | grep -q HEALTHY || exit 1"]
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 10
+
+  # Prometheus client: Scrapes metrics from services
+  prometheus:
+    image: prom/prometheus:v2.53.1
+    container_name: app-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus-client.yml:/etc/prometheus/prometheus.yml:ro
+      - ./certs:/etc/prometheus/certs:ro
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-lifecycle
+    restart: unless-stopped
+    depends_on:
+      fluent-bit:
+        condition: service_started
+    # healthcheck:
+    #   test: ["CMD-SHELL", "curl -f http://localhost:9090/-/healthy || exit 1"]
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 10
+
+  # Infrastructure Services
+  zipkin:
+    image: openzipkin/zipkin:3.4
+    ports:
+      - "9411:9411"
+    environment:
+      - STORAGE_TYPE=mem
+    restart: unless-stopped
+    # healthcheck:
+    #   test: ["CMD-SHELL", "curl -f http://localhost:9411/health || exit 1"]
+    #   interval: 10s
+    #   timeout: 5s
+    #   retries: 30
+
+  redis-queue:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    # healthcheck:
+    #   test: ["CMD-SHELL", "redis-cli ping | grep PONG || exit 1"]
+    #   interval: 10s
+    #   timeout: 5s
+    #   retries: 30
+
+  # API Services
+  users-api:
+    build: ./users-api
+    image: microservice-users-api:latest
+    container_name: users-api
+    ports:
+      - "8083:8083"
+    environment:
+      SERVER_PORT: 8083
+      JWT_SECRET: myfancysecret
+      SPRING_ZIPKIN_BASE_URL: http://zipkin:9411
+      # [ADDED] Redis configuration for publishing signup events
+      SPRING_REDIS_HOST: redis-queue
+      SPRING_REDIS_PORT: 6379
+      REDIS_CHANNEL: log_channel
+      # APM Configuration
+      ELASTIC_APM_SERVER_URL: http://elastic-agent:8200
+      ELASTIC_APM_SERVICE_NAME: users-api
+      ELASTIC_APM_ENVIRONMENT: docker
+      # Spring Boot Actuator for Prometheus metrics
+      MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: prometheus,health,info
+    depends_on:
+      redis-queue:
+        condition: service_started
+      zipkin:
+        condition: service_started
+      fluent-bit:
+        condition: service_started
+      elastic-agent:
+        condition: service_started
+    restart: unless-stopped
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: localhost:24224
+        tag: "docker.users-api"
+    # healthcheck:
+    #   test: ["CMD-SHELL", "curl -f http://localhost:8083/actuator/health || exit 1"]
+    #   interval: 15s
+    #   timeout: 5s
+    #   retries: 30
+
+  auth-api:
+    build: ./auth-api
+    image: microservice-auth-api:latest
+    container_name: auth-api
+    ports:
+      - "8081:8081"
+    environment:
+      AUTH_API_PORT: 8081
+      JWT_SECRET: myfancysecret
+      USERS_API_ADDRESS: http://users-api:8083
+      ZIPKIN_URL: http://zipkin:9411/api/v2/spans
+      # APM Configuration
+      ELASTIC_APM_SERVER_URL: http://elastic-agent:8200
+      ELASTIC_APM_SERVICE_NAME: auth-api
+      ELASTIC_APM_ENVIRONMENT: docker
+    depends_on:
+      users-api:
+        condition: service_started
+      zipkin:
+        condition: service_started
+      fluent-bit:
+        condition: service_started
+      elastic-agent:
+        condition: service_started
+    restart: unless-stopped
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: localhost:24224
+        tag: "docker.auth-api"
+    # healthcheck:
+    #   test: ["CMD-SHELL", "curl -f http://localhost:8081/ping || exit 1"]
+    #   interval: 15s
+    #   timeout: 5s
+    #   retries: 30
+
+  todos-api:
+    build: ./todos-api
+    image: microservice-todos-api:latest
+    container_name: todos-api
+    ports:
+      - "8082:8082"
+    environment:
+      TODO_API_PORT: 8082
+      JWT_SECRET: myfancysecret
+      REDIS_HOST: redis-queue
+      REDIS_PORT: 6379
+      REDIS_CHANNEL: log_channel
+      ZIPKIN_URL: http://zipkin:9411/api/v2/spans
+      # APM Configuration
+      ELASTIC_APM_SERVER_URL: http://elastic-agent:8200
+      ELASTIC_APM_SERVICE_NAME: todos-api
+      ELASTIC_APM_ENVIRONMENT: docker
+    depends_on:
+      redis-queue:
+        condition: service_started
+      zipkin:
+        condition: service_started
+      fluent-bit:
+        condition: service_started
+      elastic-agent:
+        condition: service_started
+    restart: unless-stopped
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: localhost:24224
+        tag: "docker.todos-api"
+    # healthcheck:
+    #   test: ["CMD-SHELL", "curl -f http://localhost:8082/ping || exit 1"]
+    #   interval: 15s
+    #   timeout: 5s
+    #   retries: 30
+
+  log-message-processor:
+    build: ./log-message-processor
+    image: microservice-log-processor:latest
+    container_name: log-message-processor
+    environment:
+      REDIS_HOST: redis-queue
+      REDIS_PORT: 6379
+      REDIS_CHANNEL: log_channel
+      ZIPKIN_URL: http://zipkin:9411/api/v2/spans
+      # APM Configuration
+      ELASTIC_APM_SERVER_URL: http://elastic-agent:8200
+      ELASTIC_APM_SERVICE_NAME: log-processor
+    depends_on:
+      redis-queue:
+        condition: service_started
+      zipkin:
+        condition: service_started
+      fluent-bit:
+        condition: service_started
+      elastic-agent:
+        condition: service_started
+    restart: unless-stopped
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: localhost:24224
+        tag: "docker.log-processor"
+    # healthcheck:
+    #   test: ["CMD-SHELL", "redis-cli -h redis-queue -p 6379 ping | grep PONG || exit 1"]
+    #   interval: 15s
+    #   timeout: 5s
+    #   retries: 10
+
+  # Frontend
+  frontend:
+    build: ./frontend
+    image: microservice-frontend:latest
+    container_name: frontend
+    ports:
+      - "3000:8080"
+    environment:
+      PORT: 8080
+      AUTH_API_ADDRESS: http://auth-api:8081
+      TODOS_API_ADDRESS: http://todos-api:8082
+      ZIPKIN_URL: http://zipkin:9411/api/v2/spans
+    depends_on:
+      auth-api:
+        condition: service_started
+      todos-api:
+        condition: service_started
+      users-api:
+        condition: service_started
+      fluent-bit:
+        condition: service_started
+      elastic-agent:
+        condition: service_started
+    restart: unless-stopped
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: localhost:24224
+        tag: "docker.frontend"
+    # healthcheck:
+    #   test: ["CMD-SHELL", "curl -f http://localhost:8080/ || exit 1"]
+    #   interval: 15s
+    #   timeout: 5s
+    #   retries: 30

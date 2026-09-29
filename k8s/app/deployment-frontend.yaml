@@ -1,0 +1,69 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: app
+  labels:
+    app: frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: k8s-app
+      containers:
+      - name: frontend
+        image: kan2nd/microapp:frontend
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: http
+          containerPort: 8080
+          protocol: TCP
+        env:
+        - name: PORT
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: FRONTEND_PORT
+        - name: AUTH_API_ADDRESS
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: AUTH_API_ADDRESS
+        - name: TODOS_API_ADDRESS
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: TODOS_API_ADDRESS
+        - name: ZIPKIN_URL
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: ZIPKIN_URL
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        # webpack dev-server binds port 8080 before compilation finishes.
+        # With 500m CPU, compilation takes ~90-120s. Delays are conservative to handle load.
+        livenessProbe:
+          tcpSocket:
+            port: 8080
+          initialDelaySeconds: 180
+          periodSeconds: 15
+          failureThreshold: 3
+        readinessProbe:
+          tcpSocket:
+            port: 8080
+          initialDelaySeconds: 120
+          periodSeconds: 10
+          failureThreshold: 3

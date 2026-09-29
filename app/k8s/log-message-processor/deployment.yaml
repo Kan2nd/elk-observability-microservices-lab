@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: microservice-app-example
+  name: log-message-processor
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      service: log-message-processor
+  template:
+    metadata:
+      labels:
+        app: microservice-app-example
+        service: log-message-processor
+    spec:
+      containers:
+      - name: log-message-processor
+        image: log-message-processor
+        imagePullPolicy: Never
+        env:
+        # Redis queue hostname for message consumption
+        - name: REDIS_HOST
+          value: redis-queue
+        # Redis queue port
+        - name: REDIS_PORT
+          value: "6379"
+        # Redis channel for consuming log messages
+        - name: REDIS_CHANNEL
+          value: log_channel
+        # Zipkin distributed tracing endpoint
+        - name: ZIPKIN_URL
+          value: http://zipkin:9411/api/v2/spans
+        # Resource requests and limits
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "50m"
+          limits:
+            memory: "256Mi"
+            cpu: "250m"
+      restartPolicy: Always

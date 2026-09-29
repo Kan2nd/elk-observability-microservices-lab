@@ -1,0 +1,41 @@
+# Environment files - contain sensitive data
+.env
+.env.local
+
+# Certificates - local and sensitive
+certs/ca.crt
+certs/*.pem
+certs/*.crt
+certs/*.key
+
+# Elastic Agent data
+elastic-agent-data/
+
+# Fleet enrollment tokens
+fleet-token.txt
+
+# Build artifacts
+target/
+dist/
+build/
+
+# Dependencies
+node_modules/
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+.dockerignore

@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: microservice-app-example
+  name: users-api
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      service: users-api
+  template:
+    metadata:
+      labels:
+        app: microservice-app-example
+        service: users-api
+    spec:
+      containers:
+      - name: users-api
+        image: users-api
+        imagePullPolicy: Never
+        ports:
+        - name: http
+          containerPort: 8083
+          protocol: TCP
+        env:
+        # JWT secret for token validation (shared with Auth API)
+        - name: JWT_SECRET
+          value: myfancysecret
+        # Server port for the Spring Boot application
+        - name: SERVER_PORT
+          value: "8083"
+        # Zipkin distributed tracing endpoint
+        - name: SPRING_ZIPKIN_BASE_URL
+          value: http://zipkin:9411
+        # Resource requests and limits
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        # Health checks for better reliability
+        livenessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8083
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8083
+          initialDelaySeconds: 15
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 2
+      restartPolicy: Always

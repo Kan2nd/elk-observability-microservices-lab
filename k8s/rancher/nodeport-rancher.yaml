@@ -1,0 +1,30 @@
+# Rancher NodePort service already exists from the original Helm install.
+# This file documents the existing service — do NOT kubectl apply it again
+# as it would conflict with the existing 'rancher' service in cattle-system.
+#
+# Existing service (auto-created by Helm, 5d9h ago):
+#   kubectl get svc rancher -n cattle-system
+#
+# Ports:
+#   HTTP  → http://192.168.96.135:31307
+#   HTTPS → https://192.168.96.135:31842
+
+# Actual service created by Helm (reference only):
+# apiVersion: v1
+# kind: Service
+# metadata:
+#   name: rancher
+#   namespace: cattle-system
+# spec:
+#   type: NodePort
+#   selector:
+#     app: rancher
+#   ports:
+#   - name: http
+#     port: 80
+#     targetPort: 80
+#     nodePort: 31307
+#   - name: https
+#     port: 443
+#     targetPort: 443
+#     nodePort: 31842

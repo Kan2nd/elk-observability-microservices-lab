@@ -1,0 +1,33 @@
+# NodePort services for external access to the app namespace.
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zipkin-nodeport
+  namespace: app
+spec:
+  type: NodePort
+  selector:
+    app: zipkin
+  ports:
+  - name: http
+    port: 9411
+    targetPort: 9411
+    nodePort: 30411
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-nodeport
+  namespace: app
+spec:
+  type: NodePort
+  selector:
+    app: frontend
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8080
+    nodePort: 30880

@@ -1,0 +1,4 @@
+elastic-apm==6.19.0
+redis==4.5.0
+py-zipkin==1.2.8
+requests

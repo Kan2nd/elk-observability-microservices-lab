@@ -1,0 +1,155 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: elastic-agent
+  namespace: app
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: elastic-agent-app
+rules:
+- apiGroups: [""]
+  resources:
+  - nodes
+  - namespaces
+  - events
+  - pods
+  - services
+  - persistentvolumes
+  - persistentvolumeclaims
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["apps"]
+  resources:
+  - replicasets
+  - deployments
+  - statefulsets
+  - daemonsets
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["batch"]
+  resources:
+  - jobs
+  verbs: ["get", "list", "watch"]
+- nonResourceURLs:
+  - /metrics
+  verbs: ["get"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: elastic-agent-app
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: elastic-agent-app
+subjects:
+- kind: ServiceAccount
+  name: elastic-agent
+  namespace: app
+
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: elastic-agent
+  namespace: app
+  labels:
+    app: elastic-agent
+spec:
+  selector:
+    matchLabels:
+      app: elastic-agent
+  template:
+    metadata:
+      labels:
+        app: elastic-agent
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: k8s-app
+      # Prevents K8s from injecting service port variables that conflict with
+      # the elastic-agent's own FLEET_SERVER_PORT / ES_PORT variables.
+      enableServiceLinks: false
+      serviceAccountName: elastic-agent
+      terminationGracePeriodSeconds: 30
+      containers:
+      - name: elastic-agent
+        image: docker.elastic.co/elastic-agent/elastic-agent:9.3.1
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          runAsUser: 0
+          privileged: true
+        ports:
+        - name: apm
+          containerPort: 8200
+          protocol: TCP
+        env:
+        - name: FLEET_ENROLL
+          value: "1"
+        # Cross-namespace DNS — elastic-agent in app namespace reaches fleet-server in monitor namespace
+        - name: FLEET_URL
+          value: "https://fleet-server.monitor.svc.cluster.local:8220"
+        - name: FLEET_CA
+          value: "/certs/ca/ca.crt"
+        # Fleet-server cert was generated with SANs for "fleet-server" and "localhost" only.
+        # Elastic-agent connects via FQDN which is not in those SANs → x509 hostname mismatch.
+        # FLEET_INSECURE=true skips hostname verification while still using TLS encryption.
+        # Proper fix: regenerate fleet-server cert with SAN fleet-server.monitor.svc.cluster.local
+        - name: FLEET_INSECURE
+          value: "true"
+        # FLEET_ENROLLMENT_TOKEN must be populated with the token generated
+        # by Kibana/Fleet after fleet-server is healthy.
+        # Run: kubectl create secret generic fleet-enrollment-secret \
+        #        --from-literal=FLEET_ENROLLMENT_TOKEN=<token> -n app
+        - name: FLEET_ENROLLMENT_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: elastic-apm-secret
+              key: fleet-enrollment-token
+        - name: ELASTIC_APM_SERVER_URL
+          value: "https://fleet-server.monitor.svc.cluster.local:8200"
+        - name: ELASTIC_APM_SECRET_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: elastic-apm-secret
+              key: apm-secret-token
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        volumeMounts:
+        - name: certs
+          mountPath: /certs
+          readOnly: true
+        - name: proc
+          mountPath: /hostfs/proc
+          readOnly: true
+        - name: sys
+          mountPath: /hostfs/sys
+          readOnly: true
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "250m"
+      volumes:
+      # elastic-certs lives in the monitor namespace; copy the CA into app namespace before applying:
+      #   kubectl get secret elastic-certs -n monitor -o jsonpath='{.data.ca\.crt}' \
+      #     | base64 -d > /tmp/ca.crt
+      #   kubectl create secret generic elastic-certs -n app --from-file=ca.crt=/tmp/ca.crt
+      - name: certs
+        secret:
+          secretName: elastic-certs
+          items:
+          - key: ca.crt
+            path: ca/ca.crt
+      # Host proc/sys for infrastructure metrics (CPU, memory, network, disk)
+      - name: proc
+        hostPath:
+          path: /proc
+      - name: sys
+        hostPath:
+          path: /sys

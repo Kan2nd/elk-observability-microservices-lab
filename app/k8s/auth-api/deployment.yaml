@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: microservice-app-example
+  name: auth-api
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      service: auth-api
+  template:
+    metadata:
+      labels:
+        app: microservice-app-example
+        service: auth-api
+    spec:
+      containers:
+      - name: auth-api
+        image: auth-api
+        imagePullPolicy: Never
+        ports:
+        - name: http
+          containerPort: 8081
+          protocol: TCP
+        env:
+        # Auth API port
+        - name: AUTH_API_PORT
+          value: "8081"
+        # JWT secret for token generation and validation (must match Users API)
+        - name: JWT_SECRET
+          value: myfancysecret
+        # Users API address for sign-up registration forwarding
+        - name: USERS_API_ADDRESS
+          value: http://users-api:8083
+        # Zipkin distributed tracing endpoint
+        - name: ZIPKIN_URL
+          value: http://zipkin:9411/api/v2/spans
+        # Resource requests and limits
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "50m"
+          limits:
+            memory: "256Mi"
+            cpu: "250m"
+        # Health checks for better reliability
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8081
+          initialDelaySeconds: 20
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8081
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 2
+      restartPolicy: Always

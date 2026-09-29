@@ -1,0 +1,71 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: microservice-app-example
+  name: todos-api
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      service: todos-api
+  template:
+    metadata:
+      labels:
+        app: microservice-app-example
+        service: todos-api
+    spec:
+      containers:
+      - name: todos-api
+        image: todos-api
+        imagePullPolicy: Never
+        ports:
+        - name: http
+          containerPort: 8082
+          protocol: TCP
+        env:
+        # JWT secret for token validation (shared with Auth API)
+        - name: JWT_SECRET
+          value: myfancysecret
+        # Todos API server port
+        - name: TODO_API_PORT
+          value: "8082"
+        # Redis queue hostname for message publishing
+        - name: REDIS_HOST
+          value: redis-queue
+        # Redis queue port
+        - name: REDIS_PORT
+          value: "6379"
+        # Redis channel for log messages
+        - name: REDIS_CHANNEL
+          value: log_channel
+        # Zipkin distributed tracing endpoint
+        - name: ZIPKIN_URL
+          value: http://zipkin:9411/api/v2/spans
+        # Resource requests and limits
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        # Health checks for better reliability
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8082
+          initialDelaySeconds: 20
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8082
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 2
+      restartPolicy: Always

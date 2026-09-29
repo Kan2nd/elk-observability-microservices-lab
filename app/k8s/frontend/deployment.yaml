@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: microservice-app-example
+  name: frontend
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      service: frontend
+  template:
+    metadata:
+      labels:
+        app: microservice-app-example
+        service: frontend
+    spec:
+      containers:
+      - name: frontend
+        image: frontend
+        imagePullPolicy: Never
+        ports:
+        - name: http
+          containerPort: 8080
+          protocol: TCP
+        env:
+        # Auth API address for login and sign-up requests
+        - name: AUTH_API_ADDRESS
+          value: http://auth-api:8081
+        # Frontend application port
+        - name: PORT
+          value: "8080"
+        # Todos API address for task operations
+        - name: TODOS_API_ADDRESS
+          value: http://todos-api:8082
+        # Zipkin distributed tracing endpoint
+        - name: ZIPKIN_URL
+          value: http://zipkin:9411/api/v2/spans
+        # Resource requests and limits
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        # Health checks for better reliability
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 15
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 2
+      restartPolicy: Always

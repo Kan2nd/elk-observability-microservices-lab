@@ -1,0 +1,81 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-api
+  namespace: app
+  labels:
+    app: auth-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: auth-api
+  template:
+    metadata:
+      labels:
+        app: auth-api
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: k8s-app
+      containers:
+      - name: auth-api
+        image: kan2nd/microapp:auth-api
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: http
+          containerPort: 8081
+          protocol: TCP
+        env:
+        - name: AUTH_API_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: AUTH_API_PORT
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: JWT_SECRET
+        - name: USERS_API_ADDRESS
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: USERS_API_ADDRESS
+        - name: ZIPKIN_URL
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: ZIPKIN_URL
+        # APM agent sends traces to fleet-server APM intake, not localhost
+        - name: ELASTIC_APM_SERVER_URL
+          value: "http://fleet-server.monitor.svc.cluster.local:8200"
+        - name: ELASTIC_APM_SECRET_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: elastic-apm-secret
+              key: apm-secret-token
+        - name: ELASTIC_APM_SERVICE_NAME
+          value: "auth-api"
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "25m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+        # auth-api has no /health route; only /version, /login, /signup
+        # Use the /version endpoint which returns 200 OK without JWT
+        livenessProbe:
+          httpGet:
+            path: /version
+            port: 8081
+          initialDelaySeconds: 10
+          periodSeconds: 15
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /version
+            port: 8081
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          failureThreshold: 3

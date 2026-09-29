@@ -1,0 +1,119 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: users-api
+  namespace: app
+  labels:
+    app: users-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: users-api
+  template:
+    metadata:
+      labels:
+        app: users-api
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: k8s-app
+      containers:
+      - name: users-api
+        image: kan2nd/microapp:users-api
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: http
+          containerPort: 8083
+          protocol: TCP
+        env:
+        - name: SERVER_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: SERVER_PORT
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: JWT_SECRET
+        - name: SPRING_ZIPKIN_BASE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: SPRING_ZIPKIN_BASE_URL
+        - name: SPRING_REDIS_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: SPRING_REDIS_HOST
+        - name: SPRING_REDIS_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: SPRING_REDIS_PORT
+        - name: REDIS_CHANNEL
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: REDIS_CHANNEL
+        # APM agent sends traces to fleet-server APM intake
+        - name: ELASTIC_APM_SERVER_URL
+          value: "http://fleet-server.monitor.svc.cluster.local:8200"
+        - name: ELASTIC_APM_SECRET_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: elastic-apm-secret
+              key: apm-secret-token
+        - name: ELASTIC_APM_SERVICE_NAME
+          value: "users-api"
+        # Switch H2 from in-memory to file mode — data persists across pod restarts.
+        # Spring Boot reads this env var and overrides application.properties at startup.
+        - name: SPRING_DATASOURCE_URL
+          value: "jdbc:h2:file:/data/usersdb;DB_CLOSE_ON_EXIT=FALSE"
+        # Cap JVM heap so total process stays inside the container memory limit.
+        # Without this, JVM auto-tunes to 1/4 of *node* RAM and blows past 512Mi → OOMKill.
+        - name: JAVA_OPTS
+          value: "-Xms128m -Xmx384m -XX:MaxMetaspaceSize=128m"
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "200m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        # JwtAuthenticationFilter blocks ALL paths except /users/register and /users/login.
+        # httpGet probes on /health return 500 → probe failure → restart loop.
+        # tcpSocket avoids the JWT filter: Tomcat binds port 8083 at ~T+7s (startup),
+        # but JPA init takes ~150s, so initialDelaySeconds gives the app time to be ready.
+        volumeMounts:
+        - name: users-data
+          mountPath: /data
+        livenessProbe:
+          tcpSocket:
+            port: 8083
+          initialDelaySeconds: 210
+          periodSeconds: 15
+          failureThreshold: 3
+        readinessProbe:
+          tcpSocket:
+            port: 8083
+          initialDelaySeconds: 180
+          periodSeconds: 10
+          failureThreshold: 3
+      volumes:
+      - name: users-data
+        persistentVolumeClaim:
+          claimName: users-api-data
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: users-api-data
+  namespace: app
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 1Gi

@@ -1,0 +1,105 @@
+# Kibana Configuration for Docker Compose
+# Elasticsearch connection - set via environment variables
+# elasticsearch.hosts, elasticsearch.username, elasticsearch.password
+
+# Server settings
+server.host: "0.0.0.0"
+server.port: 5601
+telemetry.enabled: "true"
+
+# SSL/TLS Configuration
+server.ssl.enabled: true
+server.ssl.certificate: config/certs/kibana/kibana.crt
+server.ssl.key: config/certs/kibana/kibana.key
+server.ssl.certificateAuthorities: ["config/certs/ca/ca.crt"]
+
+# Security is configured via environment variables
+# xpack.security.encryptionKey
+# xpack.encryptedSavedObjects.encryptionKey
+
+# Fleet Server Integration
+xpack.fleet.fleetServerHosts:
+  - id: default-fleet-server
+    name: Default Fleet Server
+    is_default: true
+    host_urls:
+      - https://${MONITOR_VM_IP}:8220
+
+xpack.fleet.outputs:
+  - id: default-elasticsearch
+    name: Default Elasticsearch
+    type: elasticsearch
+    is_default: true
+    is_default_monitoring: true
+    hosts:
+      - https://${MONITOR_VM_IP}:9200
+    ssl:
+      certificate_authorities:
+        - /certs/ca/ca.crt
+
+xpack.fleet.packages:
+  - name: fleet_server
+    version: latest
+  - name: system
+    version: latest
+  - name: elastic_agent
+    version: latest
+  - name: apm
+    version: latest
+
+xpack.fleet.agentPolicies:
+  - name: Fleet-Server-Policy
+    id: fleet-server-policy
+    namespace: default
+    fleet_server_host_id: default-fleet-server
+    monitoring_enabled:
+      - logs
+      - metrics
+    package_policies:
+      - name: fleet_server-1
+        package:
+          name: fleet_server
+      - name: system-1
+        package:
+          name: system
+      - name: apm-1
+        package:
+          name: apm
+        inputs:
+          - type: apm
+            enabled: true
+            vars:
+              - name: host
+                value: 0.0.0.0:8200
+
+  - name: Default Policy
+    id: default-policy
+    namespace: default
+    description: Default policy for agents
+    monitoring_enabled:
+      - logs
+      - metrics
+    package_policies:
+      - name: system-default
+        package:
+          name: system
+      - name: apm-default
+        package:
+          name: apm
+        inputs:
+          - type: apm
+            enabled: true
+            vars:
+              - name: host
+                value: 0.0.0.0:8200
+
+# APM Integration
+xpack.apm.enabled: true
+
+# Logging
+logging:
+  loggers:
+    - name: plugins.securitySolution
+      level: fatal
+    - name: plugins.cloudSecurityPosture
+      level: fatal

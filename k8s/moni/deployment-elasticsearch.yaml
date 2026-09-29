@@ -1,0 +1,115 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: es01
+  namespace: monitor
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: es01
+  template:
+    metadata:
+      labels:
+        app: es01
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: k8s-worker
+      containers:
+      - name: elasticsearch
+        image: docker.elastic.co/elasticsearch/elasticsearch:9.3.1
+        resources:
+          limits:
+            memory: 2Gi
+        ports:
+        - containerPort: 9200
+        env:
+        - name: node.name
+          value: "es01"
+        - name: cluster.name
+          valueFrom:
+            configMapKeyRef:
+              name: monitor-config
+              key: CLUSTER_NAME
+        - name: discovery.type
+          value: "single-node"
+        - name: bootstrap.memory_lock
+          value: "true"
+        - name: ES_JAVA_OPTS
+          value: "-Xms1g -Xmx1g"
+        - name: ELASTIC_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: monitor-secrets
+              key: ELASTIC_PASSWORD
+        - name: xpack.security.enabled
+          value: "true"
+        - name: xpack.security.http.ssl.enabled
+          value: "true"
+        - name: xpack.security.http.ssl.key
+          value: "certs/es01/es01.key"
+        - name: xpack.security.http.ssl.certificate
+          value: "certs/es01/es01.crt"
+        - name: xpack.security.http.ssl.certificate_authorities
+          value: "certs/ca/ca.crt"
+        - name: xpack.security.transport.ssl.enabled
+          value: "true"
+        - name: xpack.security.transport.ssl.key
+          value: "certs/es01/es01.key"
+        - name: xpack.security.transport.ssl.certificate
+          value: "certs/es01/es01.crt"
+        - name: xpack.security.transport.ssl.certificate_authorities
+          value: "certs/ca/ca.crt"
+        - name: xpack.security.transport.ssl.verification_mode
+          value: "certificate"
+        - name: xpack.license.self_generated.type
+          valueFrom:
+            configMapKeyRef:
+              name: monitor-config
+              key: LICENSE
+        volumeMounts:
+        - name: certs
+          mountPath: /usr/share/elasticsearch/config/certs
+        - name: esdata
+          mountPath: /usr/share/elasticsearch/data
+      volumes:
+      - name: certs
+        secret:
+          secretName: elastic-certs
+          items:
+          - key: ca.crt
+            path: ca/ca.crt
+          - key: es01.crt
+            path: es01/es01.crt
+          - key: es01.key
+            path: es01/es01.key
+      - name: esdata
+        persistentVolumeClaim:
+          claimName: esdata01
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: esdata01
+  namespace: monitor
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 10Gi
+---
+# Why Service: pods get random IPs that change on restart.
+# A Service gives a stable DNS name "es01" that never changes.
+# This is exactly like how docker-compose lets containers find each other by name.
+apiVersion: v1
+kind: Service
+metadata:
+  name: es01
+  namespace: monitor
+spec:
+  selector:
+    app: es01
+  ports:
+  - port: 9200
+    targetPort: 9200
+                            

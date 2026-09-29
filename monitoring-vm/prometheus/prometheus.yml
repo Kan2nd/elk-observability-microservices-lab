@@ -1,0 +1,25 @@
+global:
+  scrape_interval: 10s
+  evaluation_interval: 10s
+
+# Remote write to Elasticsearch for metric visualization in Kibana
+# NOTE: Prometheus pushes metrics to ES so they appear in Kibana dashboards
+# IMPORTANT: Replace 'ELASTIC_PASSWORD' with your actual password from .env
+#            OR use envsubst: export ELASTIC_PASSWORD=<your-password> && envsubst < prometheus.yml > prometheus.yml.tmp && mv prometheus.yml.tmp prometheus.yml
+remote_write:
+  - url: "https://elastic:ELASTIC_PASSWORD@es01:9200/_prometheus/receive"
+    tls_config:
+      insecure_skip_verify: true  # Self-signed cert; for production mount ca.crt and verify
+
+scrape_configs:
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  - job_name: "host-java-app"
+    metrics_path: /actuator/prometheus
+    scheme: http
+    static_configs:
+      # Replace APP_VM_IP with your actual app machine IP (same as docker-compose APP_HTTP_PORT)
+      # Metrics are served on port 8080 alongside REST API
+      - targets: ["APP_VM_IP:8080"]
